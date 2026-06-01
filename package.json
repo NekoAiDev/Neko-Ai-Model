@@ -1,0 +1,27 @@
+{
+  "name": "neko-ai-model",
+  "version": "1.0.0",
+  "description": "🐱 Neko Ai 猫娘模型 - 智能猫娘 AI 聊天服务",
+  "main": "server.js",
+  "bin": {
+    "neko-model": "./start.sh"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": ["neko", "ai", "catgirl", "chatbot", "猫娘"],
+  "author": "小红蛋",
+  "contributors": [
+    "小红蛋 <3815099625@qq.com> (https://github.com/xiaohondan)"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/NekoAiDev/Neko-Ai-Model.git"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "cors": "^2.8.5"
+  }
+}

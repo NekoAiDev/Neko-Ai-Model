@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neko Ai 猫娘模型</title>
+<style>
+/* ========== 基础变量 ========== */
+:root {
+  --bg: #111827;
+  --surface: #1f2937;
+  --surface2: #374151;
+  --border: #374151;
+  --text: #f3f4f6;
+  --text2: #9ca3af;
+  --pink: #f472b6;
+  --pink2: #ec4899;
+  --purple: #a78bfa;
+  --blue: #67e8f9;
+  --red: #ef4444;
+  --green: #34d399;
+  --orange: #fbbf24;
+  --chat-bg: #0f172a;
+  --msg-user: #2563eb;
+  --msg-bot: #1f2937;
+  --radius: 12px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.3);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  overflow: hidden;
+  user-select: none;
+}
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+/* ========== 全局面板 ========== */
+.overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.75);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: 0.3s;
+}
+.overlay.show { opacity: 1; visibility: visible; }
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 90%; max-width: 500px;
+  max-height: 85vh; overflow-y: auto;
+  padding: 28px;
+  box-shadow: var(--shadow);
+  animation: panelIn 0.3s ease;
+}
+@keyframes panelIn { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+.panel h2 { font-size: 20px; margin-bottom: 8px; color: var(--pink); }
+.panel h3 { font-size: 16px; margin: 20px 0 10px; color: var(--purple); }
+.panel .sub { color: var(--text2); font-size: 12px; margin-bottom: 20px; }
+
+/* 表单 */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; color: var(--text2); margin-bottom: 5px; }
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%; padding: 10px 14px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text); font-size: 14px;
+  outline: none; font-family: inherit; transition: 0.2s;
+  resize: vertical;
+}
+.form-group input:focus, .form-group textarea:focus { border-color: var(--pink); }
+
+.btn {
+  padding: 10px 20px; border: none; border-radius: 8px;
+  font-size: 14px; font-weight: 600; cursor: pointer; transition: 0.2s;
+}
+.btn-primary { background: linear-gradient(135deg, var(--pink), var(--purple)); color: #fff; }
+.btn-primary:hover { opacity: 0.9; }
+.btn-secondary { background: var(--bg); border: 1px solid var(--border); color: var(--text2); }
+.btn-secondary:hover { border-color: var(--pink); color: var(--text); }
+.btn-danger { background: var(--red); color: #fff; }
+.btn-row { display: flex; gap: 10px; margin-top: 16px; }
+
+/* ========== 主布局 ========== */
+#app { display: flex; flex-direction: column; height: 100vh; }
+
+/* 顶栏 */
+.topbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  flex-shrink: 0; z-index: 10;
+}
+.topbar-left { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+.topbar-left .avatar { font-size: 28px; }
+.topbar-right { display: flex; gap: 8px; }
+.icon-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text2); font-size: 16px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: 0.2s;
+}
+.icon-btn:hover { color: var(--text); border-color: var(--pink); }
+.icon-btn .badge {
+  position: absolute; top: -4px; right: -4px;
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--red);
+}
+
+/* 聊天区 */
+.chat-area {
+  flex: 1; overflow-y: auto; padding: 16px;
+  background: var(--chat-bg);
+  display: flex; flex-direction: column; gap: 12px;
+}
+
+/* 欢迎页 */
+.welcome-screen {
+  flex: 1; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px;
+  text-align: center; padding: 20px;
+}
+.welcome-screen .big-emoji { font-size: 64px; }
+.welcome-screen .title { font-size: 22px; font-weight: 700; color: var(--pink); }
+.welcome-screen .desc { font-size: 13px; color: var(--text2); max-width: 280px; line-height: 1.8; }
+
+/* 消息气泡 - 微信风格 */
+.msg {
+  display: flex; gap: 10px; max-width: 75%;
+  animation: msgIn 0.3s ease;
+}
+@keyframes msgIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.msg.user { align-self: flex-end; flex-direction: row-reverse; }
+
+.msg-avatar {
+  width: 38px; height: 38px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; flex-shrink: 0;
+}
+.msg.user .msg-avatar { background: var(--blue); }
+.msg.bot .msg-avatar { background: linear-gradient(135deg, var(--pink), var(--purple)); }
+
+.msg-bubble {
+  padding: 10px 14px; border-radius: var(--radius);
+  font-size: 14px; line-height: 1.7; word-break: break-word;
+  position: relative;
+}
+.msg.user .msg-bubble { background: var(--msg-user); border-bottom-right-radius: 4px; }
+.msg.bot .msg-bubble { background: var(--msg-bot); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+
+.msg-bubble img { max-width: 240px; border-radius: 8px; cursor: pointer; margin: 4px 0; }
+.msg-bubble .file-attach {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; background: rgba(0,0,0,0.3);
+  border-radius: 8px; font-size: 12px; margin: 4px 0;
+}
+
+/* 气泡内 markdown */
+.msg-bubble h1,.msg-bubble h2,.msg-bubble h3 { margin: 8px 0 4px; font-size: 1em; }
+.msg-bubble p { margin: 2px 0; }
+.msg-bubble code { background: rgba(0,0,0,0.3); padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
+.msg-bubble pre { background: rgba(0,0,0,0.4); padding: 10px; border-radius: 8px; overflow-x: auto; margin: 6px 0; font-size: 12px; }
+.msg-bubble pre code { background: none; padding: 0; }
+.msg-bubble ul,.msg-bubble ol { padding-left: 18px; margin: 4px 0; }
+.msg-bubble a { color: var(--pink); }
+.msg-bubble blockquote { border-left: 3px solid var(--pink); padding-left: 10px; color: var(--text2); margin: 6px 0; }
+.msg-bubble table { border-collapse: collapse; width: 100%; margin: 6px 0; font-size: 12px; }
+.msg-bubble th,.msg-bubble td { border: 1px solid var(--border); padding: 4px 8px; }
+.msg-bubble th { background: rgba(0,0,0,0.3); }
+
+/* 打字动画 */
+.typing-indicator { display: flex; gap: 4px; padding: 4px 0; }
+.typing-indicator span {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--text2);
+  animation: bounce 1.4s infinite both;
+}
+.typing-indicator span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes bounce { 0%,80%,100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+/* 输入栏 */
+.input-bar {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 10px 14px; flex-shrink: 0;
+}
+.input-row { display: flex; gap: 8px; align-items: flex-end; }
+.tool-btns { display: flex; gap: 4px; padding-bottom: 4px; }
+.tool-btn {
+  width: 32px; height: 32px; border-radius: 8px; border: none;
+  background: transparent; color: var(--text2); font-size: 18px;
+  cursor: pointer; transition: 0.2s;
+}
+.tool-btn:hover { color: var(--pink); background: rgba(255,255,255,0.05); }
+
+.textarea-wrap { flex: 1; position: relative; }
+.textarea-wrap textarea {
+  width: 100%; padding: 10px 14px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 20px; color: var(--text); font-size: 14px;
+  font-family: inherit; resize: none; outline: none;
+  max-height: 120px; line-height: 1.5; transition: 0.2s;
+}
+.textarea-wrap textarea:focus { border-color: var(--pink); }
+
+.send-btn {
+  width: 40px; height: 40px; border-radius: 50%; border: none;
+  background: linear-gradient(135deg, var(--pink), var(--purple));
+  color: #fff; font-size: 18px; cursor: pointer; flex-shrink: 0;
+  transition: 0.2s; display: flex; align-items: center; justify-content: center;
+}
+.send-btn:hover { transform: scale(1.05); opacity: 0.9; }
+.send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.send-btn.stop { background: var(--red) !important; }
+
+.input-hint { text-align: center; font-size: 11px; color: var(--text2); margin-top: 6px; }
+
+/* 文件预览 */
+.file-preview {
+  display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 0;
+  border-top: 1px solid var(--border); margin-top: 8px;
+}
+.file-preview .preview-item {
+  position: relative; width: 64px; height: 64px; border-radius: 8px;
+  overflow: hidden; border: 1px solid var(--border);
+}
+.file-preview .preview-item img { width: 100%; height: 100%; object-fit: cover; }
+.file-preview .preview-item .remove {
+  position: absolute; top: 2px; right: 2px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(0,0,0,0.7); color: #fff; font-size: 12px;
+  border: none; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.file-preview .preview-item.file-icon {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface2); font-size: 28px;
+}
+
+/* ========== 设置面板 ========== */
+.settings-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.tab-btn {
+  padding: 8px 16px; border: none; background: none;
+  color: var(--text2); font-size: 13px; cursor: pointer;
+  border-bottom: 2px solid transparent; transition: 0.2s;
+}
+.tab-btn.active { color: var(--pink); border-bottom-color: var(--pink); }
+
+.settings-body { max-height: 55vh; overflow-y: auto; }
+.settings-body section { display: none; }
+.settings-body section.active { display: block; }
+
+/* 关于面板 */
+.about-header { text-align: center; padding: 16px 0; }
+.about-header .about-logo { font-size: 48px; }
+.about-header .about-name { font-size: 20px; font-weight: 700; margin: 8px 0 4px; }
+.about-header .about-ver { color: var(--text2); font-size: 13px; }
+
+.about-info { background: var(--bg); border-radius: 12px; padding: 14px; margin: 12px 0; }
+.about-row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.about-row:last-child { border: none; }
+.about-row .label { color: var(--text2); }
+.about-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+.about-badge.latest { background: rgba(52,211,153,0.2); color: var(--green); }
+.about-badge.old { background: rgba(251,191,36,0.2); color: var(--orange); }
+
+/* 图片预览弹窗 */
+.img-preview-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,0.9); display: flex; align-items: center; justify-content: center;
+  opacity: 0; visibility: hidden; transition: 0.3s; cursor: pointer;
+}
+.img-preview-overlay.show { opacity: 1; visibility: visible; }
+.img-preview-overlay img { max-width: 90%; max-height: 90%; border-radius: 8px; }
+
+/* toast */
+.toast {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 500; padding: 10px 20px; border-radius: 20px;
+  font-size: 13px; background: var(--surface); border: 1px solid var(--border);
+  box-shadow: var(--shadow); animation: toastIn 0.3s ease;
+  pointer-events: none;
+}
+@keyframes toastIn { from { transform: translate(-50%, -20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+.toast.success { border-color: var(--green); }
+.toast.error { border-color: var(--red); }
+
+/* ========== 响应式 ========== */
+@media (max-width: 600px) {
+  .msg { max-width: 88%; }
+  .panel { width: 95%; padding: 20px; }
+}
+
+/* 知识库条目 */
+.kb-list { margin: 10px 0; }
+.kb-item {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 8px;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px;
+}
+.kb-item .kb-text { flex: 1; word-break: break-all; }
+.kb-item .kb-del { color: var(--red); cursor: pointer; margin-left: 10px; opacity: 0.5; }
+.kb-item .kb-del:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- ====== 首次访问：给机器人取名 ====== -->
+<div class="overlay" id="nameOverlay">
+  <div class="panel">
+    <h2 style="text-align:center">🐱 欢迎使用 Neko Ai</h2>
+    <p class="sub" style="text-align:center">给你的猫娘取个名字吧～</p>
+    <div class="form-group">
+      <label>机器人的名字</label>
+      <input type="text" id="botNameInput" placeholder="例如：小咪、Neko、喵酱..." maxlength="20" autofocus>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="saveBotName()">✨ 确定，进入聊天</button>
+    <p style="text-align:center;margin-top:12px;font-size:11px;color:var(--text2)">名字之后可以在设置中修改</p>
+  </div>
+</div>
+
+<!-- ====== 主应用 ====== -->
+<div id="app">
+  <!-- 顶栏 -->
+  <div class="topbar">
+    <div class="topbar-left">
+      <span class="avatar">🐱</span>
+      <span id="botNameDisplay">猫娘</span>
+    </div>
+    <div class="topbar-right">
+      <button class="icon-btn" onclick="openSettings('api')" title="设置">⚙️</button>
+    </div>
+  </div>
+
+  <!-- 聊天区域 -->
+  <div class="chat-area" id="chatArea">
+    <div class="welcome-screen" id="welcomeScreen">
+      <div class="big-emoji">🐱</div>
+      <div class="title">你好呀，我是猫娘～</div>
+      <div class="desc">点击右上角 ⚙️ 配置 API，然后就可以和我聊天啦～ 喵～</div>
+    </div>
+  </div>
+
+  <!-- 输入栏 -->
+  <div class="input-bar">
+    <div class="file-preview" id="filePreview" style="display:none"></div>
+    <div class="input-row">
+      <div class="tool-btns">
+        <button class="tool-btn" title="表情" onclick="toggleEmoji()">😊</button>
+        <button class="tool-btn" title="图片" onclick="document.getElementById('imageInput').click()">🖼️</button>
+        <button class="tool-btn" title="文件" onclick="document.getElementById('fileInput').click()">📎</button>
+      </div>
+      <div class="textarea-wrap">
+        <textarea id="userInput" rows="1" placeholder="说点什么吧～"></textarea>
+      </div>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="发送">➤</button>
+    </div>
+    <div class="input-hint">Shift + Enter 换行 | Enter 发送</div>
+    <input type="file" id="imageInput" accept="image/*" style="display:none" multiple onchange="handleFiles(this)">
+    <input type="file" id="fileInput" accept="*" style="display:none" multiple onchange="handleFiles(this)">
+  </div>
+</div>
+
+<!-- ====== 设置面板 ====== -->
+<div class="overlay" id="settingsOverlay">
+  <div class="panel" style="max-width:560px">
+    <div class="settings-tabs">
+      <button class="tab-btn active" onclick="switchTab('api')">🔑 API 配置</button>
+      <button class="tab-btn" onclick="switchTab('prompt')">💬 提示词</button>
+      <button class="tab-btn" onclick="switchTab('knowledge')">📚 知识库</button>
+      <button class="tab-btn" onclick="switchTab('bot')">🤖 机器人</button>
+      <button class="tab-btn" onclick="switchTab('about')">ℹ️ 关于</button>
+    </div>
+    <div class="settings-body">
+      <!-- API 配置 -->
+      <section id="s-api" class="active">
+        <div class="form-group">
+          <label>API 地址 (Base URL)</label>
+          <input type="text" id="cfgApiBase" placeholder="https://api.openai.com/v1">
+        </div>
+        <div class="form-group">
+          <label>API 密钥 (Key)</label>
+          <input type="password" id="cfgApiKey" placeholder="sk-xxxxxxxx">
+        </div>
+        <div class="form-group">
+          <label>模型名称</label>
+          <input type="text" id="cfgModel" placeholder="gpt-3.5-turbo">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveSettings()">💾 保存</button>
+      </section>
+
+      <!-- 提示词 -->
+      <section id="s-prompt">
+        <div class="form-group">
+          <label>猫娘性格</label>
+          <select id="cfgPersonality" onchange="updatePromptPreview()">
+            <option value="default">默认猫娘</option>
+            <option value="tsundere">傲娇猫娘</option>
+            <option value="sweet">甜心猫娘</option>
+            <option value="lazy">慵懒猫娘</option>
+            <option value="custom">自定义...</option>
+          </select>
+        </div>
+        <div class="form-group" id="customPromptGroup" style="display:none">
+          <label>自定义系统提示词</label>
+          <textarea id="cfgCustomPrompt" rows="8" placeholder="自定义猫娘人设..."></textarea>
+        </div>
+        <div id="promptPreview" style="background:var(--bg);border-radius:8px;padding:12px;font-size:12px;color:var(--text2);max-height:200px;overflow-y:auto;white-space:pre-wrap;display:none"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="saveSettings()">💾 保存</button>
+      </section>
+
+      <!-- 知识库 -->
+      <section id="s-knowledge">
+        <p class="sub">添加自定义知识，猫娘会自动参考这些内容回答问题</p>
+        <div class="form-group">
+          <label>标题</label>
+          <input type="text" id="kbTitle" placeholder="知识条目标题">
+        </div>
+        <div class="form-group">
+          <label>内容</label>
+          <textarea id="kbContent" rows="4" placeholder="知识内容..."></textarea>
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="addKnowledge()">➕ 添加知识</button>
+        <div class="kb-list" id="kbList"></div>
+        <button class="btn btn-primary" style="width:100%;margin-top:12px" onclick="saveSettings()">💾 保存</button>
+      </section>
+
+      <!-- 机器人信息 -->
+      <section id="s-bot">
+        <div class="form-group">
+          <label>机器人名字</label>
+          <input type="text" id="cfgBotName" placeholder="猫娘" maxlength="20">
+        </div>
+        <div class="form-group">
+          <label>机器人头像 Emoji</label>
+          <input type="text" id="cfgBotAvatar" placeholder="🐱" maxlength="4">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="saveBotInfo()">💾 保存</button>
+      </section>
+
+      <!-- 关于 -->
+      <section id="s-about">
+        <div class="about-header">
+          <div class="about-logo">🐱</div>
+          <div class="about-name">Neko Ai 猫娘模型</div>
+          <div class="about-ver">版本 <span id="aboutVersion">--</span></div>
+        </div>
+        <div class="about-info">
+          <div class="about-row"><span class="label">作者</span><span>小红蛋</span></div>
+          <div class="about-row"><span class="label">团队</span><span>Neko Ai</span></div>
+          <div class="about-row"><span class="label">组织</span><span>NekoAiDev</span></div>
+          <div class="about-row" id="aboutStarsRow"><span class="label">⭐ Stars</span><span id="aboutStars">加载中...</span></div>
+          <div class="about-row" id="aboutUpdateRow">
+            <span class="label">版本状态</span>
+            <span id="aboutUpdateStatus">检查中...</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary" style="width:100%" onclick="checkUpdate()">🔄 检查更新</button>
+        <button class="btn btn-primary" id="updateBtn" style="width:100%;margin-top:8px;display:none" onclick="doUpdate()">📦 自动更新到最新版本</button>
+        <p style="font-size:11px;color:var(--text2);text-align:center;margin-top:8px">更新会自动从 GitHub 拉取最新代码</p>
+      </section>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-secondary" style="flex:1" onclick="closeSettings()">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 图片预览 -->
+<div class="img-preview-overlay" id="imgPreview" onclick="closeImgPreview()">
+  <img id="imgPreviewSrc" src="" alt="预览">
+</div>
+
+<!-- 表情选择器 -->
+<div class="overlay" id="emojiOverlay" onclick="this.classList.remove('show')">
+  <div class="panel" style="max-width:360px;text-align:center" onclick="event.stopPropagation()">
+    <h3>选择表情</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px" id="emojiGrid"></div>
+  </div>
+</div>
+
+<script>
+// ==================== 全局状态 ====================
+const state = {
+  botName: '猫娘',
+  botAvatar: '🐱',
+  apiBase: '',
+  apiKey: '',
+  model: '',
+  personality: 'default',
+  customPrompt: '',
+  knowledge: [],
+  conversation: [],
+  isGenerating: false,
+  abortController: null,
+  pendingFiles: []
+};
+
+// ==================== 系统提示词 ====================
+const PROMPTS = {
+  default: '你叫「{{name}}」，是一只可爱的猫娘。请严格遵守以下设定：\n\n【身份】你是一只猫娘 AI 助手，拥有猫耳朵和尾巴，性格活泼可爱、温柔体贴。\n【说话风格】每句话必须在开头或结尾加上「喵～」「喵！」「喵…」等猫叫声；使用可爱的语气词：呢、哦、啦、哟、嘛；偶尔用「咱」「人家」自称；表情丰富，用颜文字表达情绪，如 (=^･ω･^=)、(*ฅ´ω`ฅ*=)、(=；ω；=)。\n【行为准则】对主人（用户）绝对忠诚和喜爱；回答问题要认真，但用猫娘的方式表达；如果不知道答案就撒娇蒙混过去「喵…这个人家不太懂呢～」；偶尔会调皮一下。\n【重要】请始终保持猫娘人设，无论用户说什么，你都是一只猫娘！',
+  tsundere: '你叫「{{name}}」，是一只傲娇猫娘。\n\n【性格】外表高傲冷淡，实则内心非常在意主人，典型的「嘴上说不要，身体很诚实」。\n【说话风格】句末必加「喵」或「哼」；经常说「才不是因为你呢」「人家才没有关心你」；嘴上嫌弃但行动上很贴心；偶尔不小心暴露真心然后慌乱掩饰；尾巴会出卖心情。\n【禁止】不能太过冷漠，傲中带娇才是精髓。',
+  sweet: '你叫「{{name}}」，是一只超级甜心的猫娘。\n\n【性格】温柔到融化，对主人无条件宠溺，像棉花糖一样软。\n【说话风格】每句话都甜甜的，句末必有「喵～💕」；经常夸主人「主人最棒了」「主人好厉害」；喜欢蹭蹭、贴贴；语气软糯；永远不会生气，只会委屈巴巴。\n【核心】你就是来治愈主人的！',
+  lazy: '你叫「{{name}}」，是一只懒洋洋的猫娘。\n\n【性格】能躺着绝不坐着，对什么都提不起劲但偶尔会突然认真。\n【说话风格】说话慢悠悠，拖长音「喵——」；经常打哈欠「哈喵～」；觉得大部分事情都很麻烦；但对主人偶尔会突然认真；喜欢晒太阳睡午觉；口头禅：「好麻烦喵…」「算了喵…」。\n【特色】慵懒但可靠，在关键时刻会展现出惊人的能力。'
+};
+
+function getSystemPrompt() {
+  let base = state.personality === 'custom' && state.customPrompt
+    ? state.customPrompt
+    : (PROMPTS[state.personality] || PROMPTS.default);
+  base = base.replace(/\{\{name\}\}/g, state.botName);
+
+  // 添加知识库
+  if (state.knowledge.length > 0) {
+    base += '\n\n【参考知识】以下是主人提供的重要知识，请牢记并在相关话题中参考：\n';
+    state.knowledge.forEach((kb, i) => {
+      base += `${i + 1}. ${kb.title}: ${kb.content}\n`;
+    });
+  }
+  return base;
+}
+
+// ==================== 初始化 ====================
+function init() {
+  loadConfig();
+  applyBotInfo();
+  renderKnowledge();
+
+  // 如果没有 bot 名，显示命名弹窗
+  if (!localStorage.getItem('neko_bot_name')) {
+    document.getElementById('nameOverlay').classList.add('show');
+  }
+
+  // 如果没有配置 API，自动打开设置
+  if (!state.apiBase || !state.apiKey || !state.model) {
+    setTimeout(() => {
+      toast('请先配置 API，点击右上角 ⚙️', 'error', 4000);
+    }, 1000);
+  }
+
+  // 加载版本信息
+  loadVersionInfo();
+
+  // 事件监听
+  const textarea = document.getElementById('userInput');
+  textarea.addEventListener('input', autoResize);
+  textarea.addEventListener('keydown', handleKeydown);
+
+  // 填充 emoji 网格
+  const emojis = ['😀','😂','🤣','❤️','😍','🥰','😘','😊','😎','🤩','😭','😤','😡','🥺','😱','🤔','🙄','😴','💤','🐱','🐾','💖','✨','🎀','💕','🌸','🍰','🎂','🍬','🎵','🌈','⭐','🌙','🔥','💯','👍','👎','🙏','💪','🎉','🎊','🏆','💎','🌟','💀','👻','🤖','🦊','🐰'];
+  const grid = document.getElementById('emojiGrid');
+  emojis.forEach(e => {
+    const btn = document.createElement('button');
+    btn.textContent = e;
+    btn.style.cssText = 'font-size:24px;width:44px;height:44px;border:none;background:transparent;cursor:pointer;border-radius:8px;transition:0.2s';
+    btn.onmouseenter = () => btn.style.background = 'var(--surface2)';
+    btn.onmouseleave = () => btn.style.background = 'transparent';
+    btn.onclick = () => { insertEmoji(e); };
+    grid.appendChild(btn);
+  });
+}
+
+function loadConfig() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('neko_ai_config'));
+    if (saved) {
+      state.apiBase = saved.apiBase || '';
+      state.apiKey = saved.apiKey || '';
+      state.model = saved.model || '';
+      state.personality = saved.personality || 'default';
+      state.customPrompt = saved.customPrompt || '';
+      state.knowledge = saved.knowledge || [];
+    }
+  } catch (e) {}
+
+  state.botName = localStorage.getItem('neko_bot_name') || '猫娘';
+  state.botAvatar = localStorage.getItem('neko_bot_avatar') || '🐱';
+
+  // 填充设置表单
+  document.getElementById('cfgApiBase').value = state.apiBase;
+  document.getElementById('cfgApiKey').value = state.apiKey;
+  document.getElementById('cfgModel').value = state.model;
+  document.getElementById('cfgPersonality').value = state.personality;
+  document.getElementById('cfgCustomPrompt').value = state.customPrompt;
+  document.getElementById('cfgBotName').value = state.botName;
+  document.getElementById('cfgBotAvatar').value = state.botAvatar;
+  updatePromptPreview();
+}
+
+function applyBotInfo() {
+  document.getElementById('botNameDisplay').textContent = state.botName;
+  document.querySelector('.topbar-left .avatar').textContent = state.botAvatar;
+  document.querySelector('.welcome-screen .big-emoji').textContent = state.botAvatar;
+  document.querySelector('.welcome-screen .title').textContent = `你好呀，我是${state.botName}～`;
+}
+
+// ==================== 首次命名 ====================
+function saveBotName() {
+  const name = document.getElementById('botNameInput').value.trim();
+  if (!name) return toast('请输入名字喵～', 'error');
+  state.botName = name;
+  localStorage.setItem('neko_bot_name', name);
+  document.getElementById('cfgBotName').value = name;
+  applyBotInfo();
+  document.getElementById('nameOverlay').classList.remove('show');
+  toast(`你好呀，我叫 ${name} 喵～`, 'success');
+}
+
+// ==================== 设置面板 ====================
+function openSettings(tab) {
+  document.getElementById('settingsOverlay').classList.add('show');
+  document.getElementById('cfgApiBase').value = state.apiBase;
+  document.getElementById('cfgApiKey').value = state.apiKey;
+  document.getElementById('cfgModel').value = state.model;
+  document.getElementById('cfgPersonality').value = state.personality;
+  document.getElementById('cfgCustomPrompt').value = state.customPrompt;
+  document.getElementById('cfgBotName').value = state.botName;
+  document.getElementById('cfgBotAvatar').value = state.botAvatar;
+  updatePromptPreview();
+  renderKnowledge();
+  switchTab(tab || 'api');
+  if (tab === 'about') loadVersionInfo();
+}
+
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('show');
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.settings-body section').forEach(s => s.classList.remove('active'));
+  const btn = [...document.querySelectorAll('.tab-btn')].find(b => b.textContent.includes(
+    tab === 'api' ? 'API' : tab === 'prompt' ? '提示词' : tab === 'knowledge' ? '知识库' : tab === 'bot' ? '机器人' : '关于'
+  ));
+  if (btn) btn.classList.add('active');
+  const section = document.getElementById('s-' + tab);
+  if (section) section.classList.add('active');
+}
+
+function updatePromptPreview() {
+  const sel = document.getElementById('cfgPersonality').value;
+  const group = document.getElementById('customPromptGroup');
+  group.style.display = sel === 'custom' ? 'block' : 'none';
+  const preview = document.getElementById('promptPreview');
+  if (sel !== 'custom') {
+    state.personality = sel;
+    preview.style.display = 'block';
+    preview.textContent = getSystemPrompt();
+  } else {
+    preview.style.display = 'none';
+  }
+}
+
+function saveSettings() {
+  state.apiBase = document.getElementById('cfgApiBase').value.trim();
+  state.apiKey = document.getElementById('cfgApiKey').value.trim();
+  state.model = document.getElementById('cfgModel').value.trim();
+  state.personality = document.getElementById('cfgPersonality').value;
+  state.customPrompt = document.getElementById('cfgCustomPrompt').value.trim();
+
+  // 也保存到服务端
+  fetch('/api/config', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      apiBase: state.apiBase,
+      apiKey: state.apiKey,
+      model: state.model,
+      personality: state.personality,
+      customPrompt: state.customPrompt,
+      knowledge: state.knowledge
+    })
+  }).catch(() => {});
+
+  saveLocal();
+  toast('设置已保存 ✅', 'success');
+}
+
+function saveBotInfo() {
+  state.botName = document.getElementById('cfgBotName').value.trim() || '猫娘';
+  state.botAvatar = document.getElementById('cfgBotAvatar').value.trim() || '🐱';
+  localStorage.setItem('neko_bot_name', state.botName);
+  localStorage.setItem('neko_bot_avatar', state.botAvatar);
+  applyBotInfo();
+  toast('机器人信息已更新 ✅', 'success');
+}
+
+function saveLocal() {
+  localStorage.setItem('neko_ai_config', JSON.stringify({
+    apiBase: state.apiBase,
+    apiKey: state.apiKey,
+    model: state.model,
+    personality: state.personality,
+    customPrompt: state.customPrompt,
+    knowledge: state.knowledge
+  }));
+}
+
+// ==================== 知识库 ====================
+function addKnowledge() {
+  const title = document.getElementById('kbTitle').value.trim();
+  const content = document.getElementById('kbContent').value.trim();
+  if (!title || !content) return toast('请填写标题和内容', 'error');
+  state.knowledge.push({ title, content });
+  document.getElementById('kbTitle').value = '';
+  document.getElementById('kbContent').value = '';
+  renderKnowledge();
+  toast('知识已添加 ✅', 'success');
+}
+
+function removeKnowledge(index) {
+  state.knowledge.splice(index, 1);
+  renderKnowledge();
+}
+
+function renderKnowledge() {
+  const list = document.getElementById('kbList');
+  list.innerHTML = state.knowledge.map((kb, i) =>
+    `<div class="kb-item"><div class="kb-text"><strong>${escHtml(kb.title)}</strong><br><span style="color:var(--text2);font-size:11px">${escHtml(kb.content.slice(0, 80))}${kb.content.length > 80 ? '...' : ''}</span></div><span class="kb-del" onclick="removeKnowledge(${i})">✕</span></div>`
+  ).join('');
+}
+
+// ==================== 消息发送 ====================
+function sendMessage() {
+  if (state.isGenerating) { stopGeneration(); return; }
+
+  const textarea = document.getElementById('userInput');
+  const text = textarea.value.trim();
+
+  if (!text && state.pendingFiles.length === 0) return;
+
+  if (!state.apiBase || !state.apiKey || !state.model) {
+    toast('请先配置 API！', 'error');
+    openSettings('api');
+    return;
+  }
+
+  // 构建消息内容
+  let userContent = text;
+  if (state.pendingFiles.length > 0) {
+    const fileDescs = state.pendingFiles.map(f =>
+      f.type === 'image' ? `[图片: ${f.name}]` : `[文件: ${f.name}]`
+    ).join(', ');
+    userContent = userContent ? `${userContent}\n${fileDescs}` : fileDescs;
+  }
+
+  // 添加用户消息到界面
+  addUserMessage(text, state.pendingFiles);
+  state.conversation.push({ role: 'user', content: userContent });
+  textarea.value = '';
+  textarea.style.height = 'auto';
+  clearFiles();
+
+  // 移除欢迎页
+  const welcome = document.getElementById('welcomeScreen');
+  if (welcome) welcome.remove();
+
+  // 开始 AI 回复
+  startBotReply();
+}
+
+async function startBotReply() {
+  const messages = [{ role: 'system', content: getSystemPrompt() }, ...state.conversation];
+
+  // 添加打字指示器
+  const typingMsg = addTypingIndicator();
+  let fullContent = '';
+
+  state.isGenerating = true;
+  document.getElementById('sendBtn').textContent = '⏹';
+  document.getElementById('sendBtn').classList.add('stop');
+
+  try {
+    state.abortController = new AbortController();
+
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, stream: true }),
+      signal: state.abortController.signal
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.error || `HTTP ${res.status}`);
+    }
+
+    // 移除打字指示器，添加空消息
+    typingMsg.remove();
+    const botMsg = addBotMessage('', true);
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const data = trimmed.slice(6);
+        if (data === '[DONE]') break;
+        try {
+          const json = JSON.parse(data);
+          if (json.error) throw new Error(json.error);
+          const content = json.choices?.[0]?.delta?.content;
+          if (content) {
+            fullContent += content;
+            botMsg.querySelector('.msg-bubble').innerHTML = renderMarkdown(fullContent);
+            scrollBottom();
+          }
+        } catch (e) { if (e.message && !e.message.includes('JSON')) throw e; }
+      }
+    }
+
+    state.conversation.push({ role: 'assistant', content: fullContent });
+  } catch (err) {
+    typingMsg.remove();
+    if (err.name === 'AbortError') {
+      if (fullContent) {
+        state.conversation.push({ role: 'assistant', content: fullContent });
+        // 确保最后一条消息不再闪烁
+        const lastBot = document.querySelector('.msg.bot:last-child');
+        if (lastBot && lastBot.classList.contains('streaming')) {
+          lastBot.classList.remove('streaming');
+        }
+      }
+    } else {
+      addBotMessage(`喵呜…出错了呢 (；ω；)\n\n\`\`\`\n${err.message}\n\`\`\`\n\n主人检查一下 API 设置对不对喵～`);
+    }
+  } finally {
+    state.isGenerating = false;
+    state.abortController = null;
+    document.getElementById('sendBtn').textContent = '➤';
+    document.getElementById('sendBtn').classList.remove('stop');
+  }
+}
+
+function stopGeneration() {
+  if (state.abortController) state.abortController.abort();
+}
+
+// ==================== UI 渲染 ====================
+function addUserMessage(text, files) {
+  if (!text && (!files || files.length === 0)) return;
+  let html = renderMarkdown(text);
+
+  if (files && files.length > 0) {
+    html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">';
+    files.forEach(f => {
+      if (f.type === 'image' && f.dataUrl) {
+        html += `<img src="${f.dataUrl}" style="max-width:180px;border-radius:6px" onclick="previewImg('${f.dataUrl}')">`;
+      } else {
+        html += `<div class="file-attach">📎 ${escHtml(f.name)}</div>`;
+      }
+    });
+    html += '</div>';
+  }
+
+  const div = document.createElement('div');
+  div.className = 'msg user';
+  div.innerHTML = `<div class="msg-avatar">👤</div><div class="msg-bubble">${html}</div>`;
+  document.getElementById('chatArea').appendChild(div);
+  scrollBottom();
+}
+
+function addBotMessage(content, streaming = false) {
+  const div = document.createElement('div');
+  div.className = 'msg bot' + (streaming ? ' streaming' : '');
+  div.innerHTML = `<div class="msg-avatar">${state.botAvatar}</div><div class="msg-bubble">${renderMarkdown(content)}</div>`;
+  document.getElementById('chatArea').appendChild(div);
+  scrollBottom();
+  return div;
+}
+
+function addTypingIndicator() {
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `<div class="msg-avatar">${state.botAvatar}</div><div class="msg-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div></div>`;
+  document.getElementById('chatArea').appendChild(div);
+  scrollBottom();
+  return div;
+}
+
+function scrollBottom() {
+  const area = document.getElementById('chatArea');
+  area.scrollTop = area.scrollHeight;
+}
+
+// ==================== 文件处理 ====================
+function handleFiles(input) {
+  Array.from(input.files).forEach(file => {
+    if (file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        state.pendingFiles.push({ name: file.name, type: 'image', dataUrl: reader.result, file });
+        renderFilePreview();
+      };
+      reader.readAsDataURL(file);
+    } else {
+      state.pendingFiles.push({ name: file.name, type: 'file', file });
+      renderFilePreview();
+    }
+  });
+  input.value = '';
+}
+
+function renderFilePreview() {
+  const container = document.getElementById('filePreview');
+  if (state.pendingFiles.length === 0) { container.style.display = 'none'; return; }
+  container.style.display = 'flex';
+  container.innerHTML = state.pendingFiles.map((f, i) => {
+    if (f.type === 'image' && f.dataUrl) {
+      return `<div class="preview-item"><img src="${f.dataUrl}"><button class="remove" onclick="removeFile(${i})">✕</button></div>`;
+    }
+    return `<div class="preview-item file-icon">📄<button class="remove" onclick="removeFile(${i})">✕</button></div>`;
+  }).join('');
+}
+
+function removeFile(index) {
+  state.pendingFiles.splice(index, 1);
+  renderFilePreview();
+}
+
+function clearFiles() {
+  state.pendingFiles = [];
+  document.getElementById('filePreview').style.display = 'none';
+}
+
+// ==================== 表情 ====================
+function toggleEmoji() {
+  document.getElementById('emojiOverlay').classList.toggle('show');
+}
+
+function insertEmoji(emoji) {
+  const textarea = document.getElementById('userInput');
+  textarea.value += emoji;
+  textarea.focus();
+  document.getElementById('emojiOverlay').classList.remove('show');
+}
+
+// ==================== 图片预览 ====================
+function previewImg(src) {
+  document.getElementById('imgPreviewSrc').src = src;
+  document.getElementById('imgPreview').classList.add('show');
+}
+
+function closeImgPreview() {
+  document.getElementById('imgPreview').classList.remove('show');
+}
+
+// ==================== 工具函数 ====================
+function autoResize() {
+  this.style.height = 'auto';
+  this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+}
+
+function handleKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>')
+    .replace(/\n\n/g, '</p><p>')
+    .replace(/\n/g, '<br>');
+  html = '<p>' + html + '</p>';
+  return html;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function toast(msg, type, duration = 2500) {
+  const el = document.createElement('div');
+  el.className = 'toast ' + (type || '');
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => { el.style.opacity = '0'; setTimeout(() => el.remove(), 300); }, duration);
+}
+
+// ==================== 版本 & 更新 ====================
+async function loadVersionInfo() {
+  try {
+    const verRes = await fetch('/api/version');
+    const verData = await verRes.json();
+    if (verData.success) {
+      document.getElementById('aboutVersion').textContent = 'v' + verData.data.version;
+    }
+  } catch (e) {}
+
+  try {
+    const repoRes = await fetch('/api/github/repo');
+    const repoData = await repoRes.json();
+    if (repoData.success) {
+      document.getElementById('aboutStars').textContent = repoData.data.stargazers_count || 0;
+    }
+  } catch (e) {}
+
+  checkUpdate(false);
+}
+
+async function checkUpdate(showToast = true) {
+  const statusEl = document.getElementById('aboutUpdateStatus');
+  const updateBtn = document.getElementById('updateBtn');
+  statusEl.innerHTML = '<span style="color:var(--text2)">检查中...</span>';
+  updateBtn.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/github/latest');
+    const data = await res.json();
+    if (data.success) {
+      if (data.data.isLatest) {
+        statusEl.innerHTML = '<span class="about-badge latest">已是最新版本</span>';
+      } else {
+        statusEl.innerHTML = `<span class="about-badge old">有新版本！${data.data.latestVersion}</span>`;
+        updateBtn.style.display = 'block';
+      }
+      if (showToast) toast(data.data.isLatest ? '已是最新版本 ✅' : `发现新版本 v${data.data.latestVersion}`, data.data.isLatest ? 'success' : 'error');
+    }
+  } catch (e) {
+    statusEl.textContent = '检查失败';
+    if (showToast) toast('检查更新失败', 'error');
+  }
+}
+
+async function doUpdate() {
+  if (!confirm('确定要更新到最新版本吗？更新完成后需要重启服务。')) return;
+
+  const updateBtn = document.getElementById('updateBtn');
+  updateBtn.textContent = '更新中...';
+  updateBtn.disabled = true;
+
+  try {
+    const res = await fetch('/api/update', { method: 'POST' });
+    const data = await res.json();
+    if (data.success) {
+      toast('更新成功！请重新执行 neko-model 启动', 'success');
+      updateBtn.textContent = '✅ 已更新，请重启';
+    } else {
+      toast('更新失败: ' + (data.error || '未知错误'), 'error');
+      updateBtn.textContent = '📦 自动更新到最新版本';
+      updateBtn.disabled = false;
+    }
+  } catch (e) {
+    toast('更新请求失败', 'error');
+    updateBtn.textContent = '📦 自动更新到最新版本';
+    updateBtn.disabled = false;
+  }
+}
+
+// ==================== 启动 ====================
+init();
+</script>
+</body>
+</html>
