@@ -340,6 +340,7 @@ body {
       <span id="botNameDisplay">猫娘</span>
     </div>
     <div class="topbar-right">
+      <button class="icon-btn" onclick="openDocs()" title="接入文档">📖</button>
       <button class="icon-btn" onclick="openSettings('api')" title="设置">⚙️</button>
     </div>
   </div>
@@ -488,6 +489,20 @@ body {
   <div class="panel" style="max-width:360px;text-align:center" onclick="event.stopPropagation()">
     <h3>选择表情</h3>
     <div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:12px" id="emojiGrid"></div>
+  </div>
+</div>
+
+<!-- 文档弹窗 (iframe 方式，防篡改) -->
+<div class="overlay" id="docsOverlay">
+  <div style="width:95%;height:90%;background:var(--surface);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:var(--shadow)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
+      <span style="font-weight:600;font-size:14px">📖 接入文档</span>
+      <div style="display:flex;gap:8px">
+        <a href="/docs/" target="_blank" style="font-size:12px;color:var(--text2);text-decoration:none;padding:4px 10px;border:1px solid var(--border);border-radius:6px">在新标签页打开</a>
+        <button onclick="closeDocs()" style="background:none;border:1px solid var(--border);color:var(--text2);padding:4px 10px;border-radius:6px;cursor:pointer;font-size:12px">✕ 关闭</button>
+      </div>
+    </div>
+    <iframe id="docsFrame" src="" style="flex:1;border:none;width:100%" sandbox="allow-scripts allow-same-origin"></iframe>
   </div>
 </div>
 
@@ -963,6 +978,17 @@ function previewImg(src) {
 
 function closeImgPreview() {
   document.getElementById('imgPreview').classList.remove('show');
+}
+
+// ==================== 文档弹窗 (iframe, 防篡改) ====================
+function openDocs() {
+  document.getElementById('docsFrame').src = '/docs/';
+  document.getElementById('docsOverlay').classList.add('show');
+}
+
+function closeDocs() {
+  document.getElementById('docsOverlay').classList.remove('show');
+  document.getElementById('docsFrame').src = '';
 }
 
 // ==================== 工具函数 ====================

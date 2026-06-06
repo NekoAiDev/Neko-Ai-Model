@@ -323,6 +323,9 @@ function compareVersions(v1, v2) {
   return 0;
 }
 
+// 文档页面路由
+app.use('/docs', express.static(path.join(__dirname, 'public', 'docs')));
+
 // SPA fallback
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
